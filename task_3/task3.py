@@ -178,7 +178,7 @@ def main(in_image, in_xml, out_xml):
 
 if __name__ == "__main__":
 	if len(sys.argv) < 3:
-		print "USAGE: python task2.py in_image in_xml out_xml [gpu#]"
+		print "USAGE: python task3.py in_image in_xml out_xml [gpu#]"
 		print "\tin_image is the input image to be labeled"
 		print "\tin_xml is in PAGE format and gives the TextRegion for baseline detection"
 		print "\tout_xml is the resulting XML file in PAGE format giving poly-lines for each detected baseline"
