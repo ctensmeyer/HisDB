@@ -62,7 +62,7 @@ def addBaselines(xml_file, out_file, baselines):
                 new_baseline.attrib['points'] = str_baseline
 
 
-                new_coords.attrib['points'] = str_baseline
+                # new_coords.attrib['points'] = str_baseline
 
     tree.write(out_file)
 
