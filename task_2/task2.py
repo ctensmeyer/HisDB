@@ -6,6 +6,8 @@ import numpy as np
 import caffe
 import cv2
 import scipy.ndimage as nd
+from post_processing import pred_to_pts
+from utils.PAGE_tools import parse_PAGE
 
 DEBUG = False
 
@@ -86,10 +88,10 @@ def get_subwindows(im):
 			if x + width > im.shape[1]:
 				x = im.shape[1] - width
 				x_done = True
-			locations.append( ((y, x, y + height, x + width), 
+			locations.append( ((y, x, y + height, x + width),
 					(y + PADDING_SIZE, x + PADDING_SIZE, y + y_stride, x + x_stride),
 					 TOP_EDGE if y == 0 else (BOTTOM_EDGE if y == (im.shape[0] - height) else MIDDLE),
-					  LEFT_EDGE if x == 0 else (RIGHT_EDGE if x == (im.shape[1] - width) else MIDDLE) 
+					  LEFT_EDGE if x == 0 else (RIGHT_EDGE if x == (im.shape[1] - width) else MIDDLE)
 			) )
 			ims.append(im[y:y+height,x:x+width,:])
 			x += x_stride
@@ -138,12 +140,26 @@ def stich_together(locations, subwindows, size):
 	return output
 
 
-def apply_post_processing(im, xml_file):
-	raise Exception("Not Implemented")
+def apply_post_processing(img, xml_file):
+	xml_data = parse_PAGE.readXMLFile(xml_file)
+	for region in xml_data[0]['regions']:
+		if region['id'] != 'region_textline':
+			continue
+
+		rb = region['bounding_poly']
+
+		sub_img = img[rb[0][1]:rb[2][1], rb[0][0]:rb[2][0]]
+		baselines = pred_to_pts(sub_img)
+
+		baselines = [[(b[0]+rb[0][1], b[1]+rb[0][0]) for b in baseline] for baseline in baselines]
+
+		return baselines
+	return []
 
 
-def write_results(final_result, xml_file):
-	raise Exception("Not Implemented")
+def write_results(final_result, in_xml, out_xml):
+	# we need the in_xml as a template to copy and add to
+	parse_PAGE.addBaselines(in_xml, out_xml, final_result)
 
 
 def main(in_image, in_xml, out_xml):
@@ -168,9 +184,9 @@ def main(in_image, in_xml, out_xml):
 
 	print "Applying Post Processing"
 	post_processed = apply_post_processing(result, in_xml)
-	
+
 	print "Writing Final Result"
-	write_results(post_processed, out_xml)
+	write_results(post_processed, in_xml, out_xml)
 
 	print "Done"
 	print "Exiting"
