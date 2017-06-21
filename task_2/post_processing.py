@@ -6,12 +6,12 @@ import time
 import numpy as np
 
 
-def pred_to_pts(color_img):
+def pred_to_pts(img):
     global_threshold = 127
     slice_size = 25
     small_threshold = 2000
 
-    img = cv2.cvtColor( color_img, cv2.COLOR_RGB2GRAY )
+    #img = cv2.cvtColor( color_img, cv2.COLOR_RGB2GRAY )
     ret, th = cv2.threshold(img,global_threshold,255,cv2.THRESH_BINARY)
     connectivity = 4
     s = time.time()

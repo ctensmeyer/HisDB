@@ -9,7 +9,7 @@ import scipy.ndimage as nd
 from post_processing import pred_to_pts
 from utils.PAGE_tools import parse_PAGE
 
-DEBUG = False
+DEBUG = True
 
 
 # acceptable image suffixes
@@ -34,6 +34,7 @@ BOTTOM_EDGE = 2
 
 def setup_network():
 	network = caffe.Net(NET_FILE, WEIGHTS_FILE, caffe.TEST)
+	print "Using Weights in", WEIGHTS_FILE
 	return network
 
 
@@ -100,8 +101,8 @@ def get_subwindows(im):
 	return locations, ims
 
 
-def stich_together(locations, subwindows, size):
-	output = np.zeros(size, dtype=np.uint8)
+def stich_together(locations, subwindows, size, dtype=np.uint8):
+	output = np.zeros(size, dtype=dtype)
 	for location, subwindow in zip(locations, subwindows):
 		outer_bounding_box, inner_bounding_box, y_type, x_type = location
 		y_paste, x_paste, y_cut, x_cut, height_paste, width_paste = -1, -1, -1, -1, -1, -1
@@ -180,7 +181,11 @@ def main(in_image, in_xml, out_xml):
 	raw_subwindows = predict(network, subwindows)
 
 	print "Reconstructing whole image from tiles"
-	result = stich_together(locations, raw_subwindows, tuple(im.shape[0:2]))
+	result = (255 * stich_together(locations, raw_subwindows, tuple(im.shape[0:2]), np.float32)).astype(np.uint8)
+
+	if DEBUG:
+		out_im = out_xml[:-4] + ".png"
+		cv2.imwrite(out_im, result)
 
 	print "Applying Post Processing"
 	post_processed = apply_post_processing(result, in_xml)
@@ -194,7 +199,7 @@ def main(in_image, in_xml, out_xml):
 
 if __name__ == "__main__":
 	if len(sys.argv) < 3:
-		print "USAGE: python task2.py in_image in_xml out_xml [gpu#]"
+		print "USAGE: python task2.py in_image in_xml out_xml [gpu#] [weights]"
 		print "\tin_image is the input image to be labeled"
 		print "\tin_xml is in PAGE format and gives the TextRegion for baseline detection"
 		print "\tout_xml is the resulting XML file in PAGE format giving poly-lines for each detected baseline"
@@ -204,6 +209,12 @@ if __name__ == "__main__":
 	in_xml = sys.argv[2]
 	out_xml = sys.argv[3]
 
+	if not os.path.exists(in_image):
+		raise Exception("in_image %s does not exist" % in_image)
+
+	if not os.path.exists(in_xml):
+		raise Exception("in_xml %s does not exist" % in_xml)
+
 	# use gpu if specified
 	try:
 		gpu = int(sys.argv[4])
@@ -212,6 +223,11 @@ if __name__ == "__main__":
 			caffe.set_device(gpu)
 	except:
 		caffe.set_mode_cpu()
+
+	try:
+		WEIGHTS_FILE = sys.argv[5]
+	except:
+		pass
 
 	main(in_image, in_xml, out_xml)
 	
