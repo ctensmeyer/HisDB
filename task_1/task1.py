@@ -17,7 +17,7 @@ NET_FILE = os.path.join(os.path.dirname(__file__), "model.prototxt")
 WEIGHTS_FILE = os.path.join(os.path.dirname(__file__), "weights.caffemodel")
 
 TILE_SIZE = 256
-PADDING_SIZE = 50
+PADDING_SIZE = 32
 
 # number of subwindows processed by a network in a batch
 # Higher numbers speed up processing (only marginally once BATCH_SIZE > 16)
@@ -42,6 +42,7 @@ BOUNDARY = 9
 
 def setup_network():
 	network = caffe.Net(NET_FILE, WEIGHTS_FILE, caffe.TEST)
+	print "Using weights from %s" % WEIGHTS_FILE
 	return network
 
 
@@ -279,6 +280,11 @@ if __name__ == "__main__":
 			caffe.set_device(gpu)
 	except:
 		caffe.set_mode_cpu()
+
+	try:
+		WEIGHTS_FILE = sys.argv[4]
+	except:
+		pass
 
 	main(in_image, out_image)
 	
