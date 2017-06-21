@@ -149,8 +149,11 @@ def apply_post_processing(img, xml_file):
 
 		rb = region['bounding_poly']
 
+		print img.shape
 		sub_img = img[rb[0][1]:rb[2][1], rb[0][0]:rb[2][0]]
+		print sub_img.shape
 		baselines = pred_to_pts(sub_img)
+		print baselines
 
 		baselines = [[(b[0]+rb[0][1], b[1]+rb[0][0]) for b in baseline] for baseline in baselines]
 
@@ -171,24 +174,36 @@ def main(in_image, in_xml, out_xml):
 	data = 0.003921568 * (im - 127.)
 
 	print "Loading network"
-	network = setup_network()
+	#network = setup_network()
 
 	print "Tiling input"
-	locations, subwindows = get_subwindows(data)
-	print "Number of tiles: %d" % len(subwindows)
+	#locations, subwindows = get_subwindows(data)
+	#print "Number of tiles: %d" % len(subwindows)
 
 	print "Starting Predictions"
-	raw_subwindows = predict(network, subwindows)
+	#raw_subwindows = predict(network, subwindows)
 
 	print "Reconstructing whole image from tiles"
-	result = (255 * stich_together(locations, raw_subwindows, tuple(im.shape[0:2]), np.float32)).astype(np.uint8)
+	#result = (255 * stich_together(locations, raw_subwindows, tuple(im.shape[0:2]), np.float32)).astype(np.uint8)
+	result = cv2.imread('out.png', 0)
 
 	if DEBUG:
-		out_im = out_xml[:-4] + ".png"
-		cv2.imwrite(out_im, result)
+		out_file = out_xml[:-4] + ".png"
+		cv2.imwrite(out_file, result)
 
 	print "Applying Post Processing"
 	post_processed = apply_post_processing(result, in_xml)
+
+	if DEBUG:
+		out_im = np.zeros(im.shape[0:2], dtype=np.uint8)
+		for baseline in post_processed:
+			prev = None
+			for x, y in baseline:
+				if prev:
+					cv2.line(out_im, prev, (x, y), thickness=3, color=255)
+				prev = (x,y)
+		out_file = out_xml[:-4] + "_lines.png"
+		cv2.imwrite(out_file, out_im)
 
 	print "Writing Final Result"
 	write_results(post_processed, in_xml, out_xml)
