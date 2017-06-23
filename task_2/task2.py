@@ -9,7 +9,11 @@ import scipy.ndimage as nd
 from post_processing import pred_to_pts
 from utils.PAGE_tools import parse_PAGE
 
-DEBUG = True
+import streamlined
+from streamlined import utils
+from streamlined.post_processing import post_processing
+
+DEBUG = False
 
 
 # acceptable image suffixes
@@ -141,29 +145,15 @@ def stich_together(locations, subwindows, size, dtype=np.uint8):
 	return output
 
 
-def apply_post_processing(img, xml_file):
-	xml_data = parse_PAGE.readXMLFile(xml_file)
-	for region in xml_data[0]['regions']:
-		if region['id'] != 'region_textline':
-			continue
-
-		rb = region['bounding_poly']
-
-		print img.shape
-		sub_img = img[rb[0][1]:rb[2][1], rb[0][0]:rb[2][0]]
-		print sub_img.shape
-		baselines = pred_to_pts(sub_img)
-		print baselines
-
-		baselines = [[(b[0]+rb[0][1], b[1]+rb[0][0]) for b in baseline] for baseline in baselines]
-
-		return baselines
-	return []
-
+def apply_post_processing(img, original_img, xml_file):
+	pre_pred_bl = streamlined.utils.xml_to_bl(xml_file)
+	pred_bl = streamlined.utils.img_to_bl(img, original_img, post_processing.pred_to_pts, pre_pred_bl)
+	return pred_bl
 
 def write_results(final_result, in_xml, out_xml):
+	streamlined.utils.bl_to_xml(final_result, out_xml)
 	# we need the in_xml as a template to copy and add to
-	parse_PAGE.addBaselines(in_xml, out_xml, final_result)
+	# parse_PAGE.addBaselines(in_xml, out_xml, final_result)
 
 
 def main(in_image, in_xml, out_xml):
@@ -174,25 +164,24 @@ def main(in_image, in_xml, out_xml):
 	data = 0.003921568 * (im - 127.)
 
 	print "Loading network"
-	#network = setup_network()
+	network = setup_network()
 
 	print "Tiling input"
-	#locations, subwindows = get_subwindows(data)
-	#print "Number of tiles: %d" % len(subwindows)
+	locations, subwindows = get_subwindows(data)
+	print "Number of tiles: %d" % len(subwindows)
 
 	print "Starting Predictions"
-	#raw_subwindows = predict(network, subwindows)
+	raw_subwindows = predict(network, subwindows)
 
 	print "Reconstructing whole image from tiles"
-	#result = (255 * stich_together(locations, raw_subwindows, tuple(im.shape[0:2]), np.float32)).astype(np.uint8)
-	result = cv2.imread('out.png', 0)
+	result = (255 * stich_together(locations, raw_subwindows, tuple(im.shape[0:2]), np.float32)).astype(np.uint8)
 
 	if DEBUG:
 		out_file = out_xml[:-4] + ".png"
 		cv2.imwrite(out_file, result)
 
 	print "Applying Post Processing"
-	post_processed = apply_post_processing(result, in_xml)
+	post_processed = apply_post_processing(result, im, in_xml)
 
 	if DEBUG:
 		out_im = np.zeros(im.shape[0:2], dtype=np.uint8)
@@ -245,4 +234,3 @@ if __name__ == "__main__":
 		pass
 
 	main(in_image, in_xml, out_xml)
-	

@@ -4,32 +4,37 @@ from collections import defaultdict
 import cv2
 import time
 import numpy as np
+import remove_side
 
 
-def pred_to_pts(img):
+def pred_to_pts(pred, orig, complex=False):
     global_threshold = 127
     slice_size = 25
-    small_threshold = 2000
+    if complex:
+        small_threshold = 500
+    else:
+        small_threshold = 2000
 
-    #img = cv2.cvtColor( color_img, cv2.COLOR_RGB2GRAY )
-    ret, th = cv2.threshold(img,global_threshold,255,cv2.THRESH_BINARY)
+    ret, th = cv2.threshold(pred,global_threshold,255,cv2.THRESH_BINARY)
     connectivity = 4
     s = time.time()
-    output= cv2.connectedComponentsWithStats(th, connectivity, cv2.CV_32S)
-    baselines = []
+    ccResults= cv2.connectedComponentsWithStats(th, connectivity, cv2.CV_32S)
+    th = remove_side.linePreprocess(th,orig,ccResults,complex);
+    ccResults= cv2.connectedComponentsWithStats(th, connectivity, cv2.CV_32S)
 
+    baselines = []
     #skip background
-    for label_id in xrange(1, output[0]):
-        min_x = output[2][label_id][0]
-        min_y = output[2][label_id][1]
-        max_x = output[2][label_id][2] + min_x
-        max_y = output[2][label_id][3] + min_y
-        cnt = output[2][label_id][4]
+    for label_id in xrange(1, ccResults[0]):
+        min_x = ccResults[2][label_id][0]
+        min_y = ccResults[2][label_id][1]
+        max_x = ccResults[2][label_id][2] + min_x
+        max_y = ccResults[2][label_id][3] + min_y
+        cnt = ccResults[2][label_id][4]
 
         if cnt < small_threshold:
             continue
 
-        baseline = output[1][min_y:max_y, min_x:max_x]
+        baseline = ccResults[1][min_y:max_y, min_x:max_x]
 
         pts = []
         x_all, y_all = np.where(baseline == label_id)
@@ -54,4 +59,5 @@ def pred_to_pts(img):
             continue
 
         baselines.append(pts)
+
     return baselines
