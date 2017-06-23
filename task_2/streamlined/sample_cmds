@@ -1,0 +1,3 @@
+python run_post_and_eval.py ../task_2_data/images results/1 ../task_2_data/gt_xml tmp_txt
+
+run_post_and_eval.py ../task_2_data/images results/1 ../task_2_data/test_xml ../task_2_data/gt_xml tmp_txt
