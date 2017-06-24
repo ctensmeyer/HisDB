@@ -6,6 +6,11 @@ import numpy as np
 import caffe
 import cv2
 import scipy.ndimage as nd
+import streamlined
+from streamlined import utils
+from streamlined.textline_pred import process_data
+from streamlined.post_processing import brian_task3_post
+from streamlined.post_processing import post_textline
 
 DEBUG = False
 
@@ -138,13 +143,16 @@ def stich_together(locations, subwindows, size):
 	return output
 
 
-def apply_post_processing(im, xml_file):
-	raise Exception("Not Implemented")
+def apply_post_processing(im, original_img, xml_file):
+	im = (255*im).astype(np.uint8)
+	pre_pred_bl = utils.xml_to_bl(xml_file)
+	pred_bl = utils.img_to_bl(im, original_img, brian_task3_post.getContours, pre_pred_bl, "textlines")
+	#pred_bl = utils.img_to_bl(im, original_img, post_textline.pred_to_textline, pre_pred_bl, "textlines")
+	return pred_bl
 
 
 def write_results(final_result, xml_file):
-	raise Exception("Not Implemented")
-
+	utils.bl_to_xml(final_result, xml_file)
 
 def main(in_image, in_xml, out_xml):
 	print "Loading Image"
@@ -167,7 +175,7 @@ def main(in_image, in_xml, out_xml):
 	result = stich_together(locations, raw_subwindows, tuple(im.shape[0:2]))
 
 	print "Applying Post Processing"
-	post_processed = apply_post_processing(result, in_xml)
+	post_processed = apply_post_processing(result, im, in_xml)
 	
 	print "Writing Final Result"
 	write_results(post_processed, out_xml)
