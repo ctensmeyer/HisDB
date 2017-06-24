@@ -10,6 +10,7 @@ from multiprocessing import Pool, Manager
 import time
 from collections import defaultdict
 import math
+import traceback
 
 def make_visual_result(original_img, gt_bl_pixels, pred_bl_pixels):
 
@@ -101,6 +102,8 @@ def process_single(params):
                 os.makedirs(os.path.dirname(full_vis_result_path))
             cv2.imwrite(full_vis_result_path, vis_result)
 
+    print id_
+    print score
     return {
         "vis_result_path": vis_result_path,
         "individual_score": score
@@ -113,6 +116,8 @@ def process_single_interrupt(params):
     except KeyboardInterrupt:
         raise
     except:
+        traceback.print_exc()
+        print params
         return None
 
     return None
@@ -142,7 +147,7 @@ def process_data(params):
     for i in range(len(original_img_paths)):
 
         single_params = {}
-        single_params['id'] = str(i)
+        single_params['id'] = os.path.basename(original_img_paths[i]) + str(i)
         for k, v in params.iteritems():
             if type(v) == list:
                 single_params[k] = v[i]
@@ -171,6 +176,7 @@ def process_data(params):
     #     print "-"
     #     r = process_single(single_params)
     #     results.append(r)
+
 
     results = [r for r in results if r is not None]
     print len(results)

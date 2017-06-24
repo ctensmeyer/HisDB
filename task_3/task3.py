@@ -12,7 +12,7 @@ from streamlined.textline_pred import process_data
 from streamlined.post_processing import brian_task3_post
 from streamlined.post_processing import post_textline
 
-DEBUG = False
+DEBUG = True
 
 
 # acceptable image suffixes
@@ -144,7 +144,6 @@ def stich_together(locations, subwindows, size):
 
 
 def apply_post_processing(im, original_img, xml_file):
-	im = (255*im).astype(np.uint8)
 	pre_pred_bl = utils.xml_to_bl(xml_file)
 	pred_bl = utils.img_to_bl(im, original_img, brian_task3_post.getContours, pre_pred_bl, "textlines")
 	#pred_bl = utils.img_to_bl(im, original_img, post_textline.pred_to_textline, pre_pred_bl, "textlines")
@@ -152,7 +151,7 @@ def apply_post_processing(im, original_img, xml_file):
 
 
 def write_results(final_result, xml_file):
-	utils.bl_to_xml(final_result, xml_file)
+	utils.bl_to_xml(final_result, xml_file, "textlines")
 
 def main(in_image, in_xml, out_xml):
 	print "Loading Image"
@@ -173,9 +172,23 @@ def main(in_image, in_xml, out_xml):
 
 	print "Reconstructing whole image from tiles"
 	result = stich_together(locations, raw_subwindows, tuple(im.shape[0:2]))
+	result = (255 * result).astype(np.uint8)
+
+	low_indices = result < 127
+	high_indices = result >= 128
+	result[low_indices] = 0
+	result[high_indices] = 255
+
+	if DEBUG:
+		cv2.imwrite('out.png', result)
 
 	print "Applying Post Processing"
 	post_processed = apply_post_processing(result, im, in_xml)
+
+	if DEBUG:
+		import json
+		with open("out.json", "w") as f:
+			json.dump(post_processed, f)
 	
 	print "Writing Final Result"
 	write_results(post_processed, out_xml)

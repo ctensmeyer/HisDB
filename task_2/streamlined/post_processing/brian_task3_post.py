@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import math
 from collections import defaultdict, deque
+from skimage.graph import route_through_array
 
 
 def getLineVariance(img,angle):
@@ -181,7 +182,6 @@ def connectHorz(pred,ccRes,task3):
             centersOfMass.append(1)
     for cc in range(1,numCCs):
         if ccStats[cc][cv2.CC_STAT_WIDTH]!=0:
-            todo=[cc]
             merged=False
             #while len(todo)>0:
             #    curCC = todo.pop()
@@ -327,27 +327,45 @@ def shortest_path(graph, origin, destination):
     return visited[destination], list(full_path)
 
 def splitTwo(pred,subCCs,cc):
-    midY=subCCs.shape[0]/2
-    g = Graph()
-    for x in range(0,subCCs.shape[1]):
-        for y in range(0,subCCs.shape[0]):
-            g.add_node((y,x))
-            for nbr in [(y-1,x),(y,x+1),(y+1,x),(y,x-1)]:
-                if nbr[0]>=0 and nbr[0]<subCCs.shape[0] and nbr[1]>=0 and nbr[1]<subCCs.shape[1]:
-                    if subCCs[nbr]==cc:
-                        g.add_edge((y,x),nbr,100.0)
-                    else:
-                        cost=0.01
-                        if abs(midY-y)>abs(midY-nbr[0]):
-                            cost-=0.0014
-                        elif abs(midY-y)<abs(midY-nbr[0]):
-                            cost+=0.0014
-                        g.add_edge((y,x),nbr,cost)
-    v, path = shortest_path(g,(midY,0),(midY,subCCs.shape[1]-1))
-    for p in path:
-        if subCCs[p]==cc:
-            subCCs[p]=0
-            pred[p]=0
+    if pred.shape[0]>1 and pred.shape[1]>1:
+        midY=subCCs.shape[0]/2
+
+        g = np.zeros(pred.shape)
+        for x in range(0,subCCs.shape[1]):
+            for y in range(0,subCCs.shape[0]):
+                if subCCs[y,x]==cc:
+                    g[y,x]=100
+                else:
+                    g[y,x]=0.01+abs(y-midY)*0.001
+        indices, weight = route_through_array(g, (midY,0), (midY,subCCs.shape[1]-1),fully_connected=False)
+        #print '--------------------'
+        #print indices
+        #print '--------------------'
+        for p in indices:
+            if subCCs[p]==cc:
+                subCCs[p]=0
+                pred[p]=0
+
+    #g = Graph()
+    #for x in range(0,subCCs.shape[1]):
+    #    for y in range(0,subCCs.shape[0]):
+    #        g.add_node((y,x))
+    #        for nbr in [(y-1,x),(y,x+1),(y+1,x),(y,x-1)]:
+    #            if nbr[0]>=0 and nbr[0]<subCCs.shape[0] and nbr[1]>=0 and nbr[1]<subCCs.shape[1]:
+    #                if subCCs[nbr]==cc:
+    #                    g.add_edge((y,x),nbr,100.0)
+    #                else:
+    #                    cost=0.01
+    #                    if abs(midY-y)>abs(midY-nbr[0]):
+    #                        cost-=0.0014
+    #                    elif abs(midY-y)<abs(midY-nbr[0]):
+    #                        cost+=0.0014
+    #                    g.add_edge((y,x),nbr,cost)
+    #v, path = shortest_path(g,(midY,0),(midY,subCCs.shape[1]-1))
+    #for p in path:
+    #    if subCCs[p]==cc:
+    #        subCCs[p]=0
+    #        pred[p]=0
 
 
 
@@ -388,7 +406,7 @@ def cutCC(cc,pred,ccRes):
                     #split.
                     startX=x
                     endX=x
-                    while subCCs[splitY,x]==cc:
+                    while x<subPred.shape[1] and subCCs[splitY,x]==cc:
                         #subPred[splitY,x]=0
                         #subCCs[splitY,x]=0
                         x+=1
@@ -397,15 +415,15 @@ def cutCC(cc,pred,ccRes):
                     dist = endX-startX
                     startX= max(0,midX-dist)
                     #startX= max(0,midX-(regionPeaks[i]-regionPeaks[i-1]))
-                    while subCCs[splitY,startX]==cc:
+                    while startX>=0 and subCCs[splitY,startX]==cc:
                         startX-=1
                     endX= min(subPred.shape[1]-1,midX+dist)
                     #endX= max(subPred.shape[1]-1,midX+(regionPeaks[i]-regionPeaks[i-1]))
-                    while subCCs[splitY,endX]==cc:
+                    while endX<subPred.shape[1] and subCCs[splitY,endX]==cc:
                         endX+=1
                     splitTwo(subPred[regionPeaks[i-1]+1:regionPeaks[i],startX:endX],subCCs[regionPeaks[i-1]+1:regionPeaks[i],startX:endX],cc)
                 else:
-                    while subCCs[splitY,x]==cc:
+                    while x<subPred.shape[1] and subCCs[splitY,x]==cc:
                         x+=1
             else:
                 #subPred[splitY,x]=155
@@ -540,15 +558,22 @@ if __name__ == "__main__":
 
     angle, pred = deskew(pred)
     ccRes = cv2.connectedComponentsWithStats(pred, 4, cv2.CV_32S)
+    print 'start thresh small'
     threshSmallCC(pred,ccRes)
     if task3:
+        print 'start find outliers'
         outliers = findOutlierCCs(pred,ccRes)
+        print 'start cutting'
         for cc in outliers:
             cutCC(cc,pred,ccRes)
+        print 'finish cutting'
         ccRes = cv2.connectedComponentsWithStats(pred, 4, cv2.CV_32S)
+    print 'start connecting'
     superCCs, superLines = connectHorz(pred,ccRes,task3)
+    print 'finish connecting'
     rot = cv2.getRotationMatrix2D((pred.shape[1]/2,pred.shape[0]/2), -angle, 1)
     contours=[]
+    print 'start contouts'
     for i in superCCs:
         points = getSuperCC(pred,superCCs[i],superLines[i],ccRes)
         for ii in range(0,len(points)):
@@ -557,7 +582,7 @@ if __name__ == "__main__":
 
         contours.append(points)
 
-    
+    print 'finish contours'
     pred = cv2.warpAffine(pred,rot,(pred.shape[1],pred.shape[0]),None,cv2.INTER_NEAREST+cv2.WARP_FILL_OUTLIERS)
     for points in contours:
         for p in points:
