@@ -157,7 +157,10 @@ def get_out_im(text_mask, comment_mask, decoration_mask):
 	out[comment_mask] += 2
 	out[out == 0] = 1  # background class cannot overlap
 
-	return out
+	out2 = np.zeros( (text_mask.shape[0], text_mask.shape[1], 3), dtype=np.uint8)
+	out2[:,:,0] = out
+
+	return out2
 
 
 def get_color_im(text_mask, comment_mask, decoration_mask):
